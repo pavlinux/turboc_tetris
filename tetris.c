@@ -1,122 +1,155 @@
 /* Author: Sylvain Maltais  */
 /* Developer sous: Turbo C version 2.0 de 1989 */
 /* URL: http://www.gladir.com/CODER/DELPHI/tetris.htm */
-#include <conio.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <curses.h>
 
+#if !defined(TRUE) && !defined(FALSE)
 #define FALSE     0
 #define TRUE      !FALSE
+#endif
 
- /* Code de touche clavier renvoyée par ReadKey */
-#define kbNoKey   0		/* Pas de touche */
-#define kbEsc     0x011B	/* Escape */
-#define kbUp      0x4800	/* Up */
-#define kbLeft    0x4B00	/* Flèche de gauche (Left) */
-#define kbKeypad5 0x4CF0	/* 5 du bloc numérique */
-#define kbRight   0x4D00	/* Flèche de droite (Right) */
-#define kbDn      0x5000	/* Flèche du bas (Down) */
+/* Code de touche clavier renvoyï¿½e par ReadKey */
+#define kbNoKey   KEY_MIN	/* Pas de touche */
+#define kbEsc     KEY_RESET	/* Escape */
+#define kbUp      KEY_UP	/* Up */
+#define kbLeft    KEY_LEFT	/* Flï¿½che de gauche (Left) */
+#define kbKeypad5 KEY_B2	/* 5 du bloc numï¿½rique */
+#define kbRight   KEY_RIGHT	/* Flï¿½che de droite (Right) */
+#define kbDn      KEY_DOWN	/* Flï¿½che du bas (Down) */
 
 typedef struct {
+	long int Score;
 	enum { tmNone, tmStart, tmPlay, tmGameOver } Mode;
 	int Level;
-	long Score;
-	unsigned Bar, SLevel;
-	char Tbl[21][10];
-	char Form, Move;
 	int X, Y, Sleep;
 	int Touch, Ok;
 	int SleepDelay;
-	unsigned FBar;
+	unsigned int Bar;
+	unsigned int SLevel;
+	unsigned int FBar;
+	char Tbl[21][10];
+	char Form, Move;
 	char UpDate;
 } TetrisGame;
 
 char BlkHeight[7][4] = {
-	{4, 1, 4, 1},		/* Barre */
-	{2, 2, 2, 2},		/* Boîte */
-	{3, 2, 3, 2},		/* V */
-	{3, 2, 3, 2},		/* L gauche */
-	{3, 2, 3, 2},		/*/ L droite */
-	{3, 2, 3, 2},		/* Serpent romain */
-	{3, 2, 3, 2}		/* Serpent arabe */
+	{4, 1, 4, 1}, /* Barre */
+	{2, 2, 2, 2}, /* Boï¿½te */
+	{3, 2, 3, 2}, /* V */
+	{3, 2, 3, 2}, /* L gauche */
+	{3, 2, 3, 2}, /*/ L droite */
+	{3, 2, 3, 2}, /* Serpent romain */
+	{3, 2, 3, 2} /* Serpent arabe */
 };
 
 /* Largeur des objets: */
 char BlkLength[7][4] = {
-	{1, 4, 1, 4},		/* Barre */
-	{2, 2, 2, 2},		/* Boîte */
-	{2, 3, 2, 3},		/* V */
-	{2, 3, 2, 3},		/* L gauche */
-	{2, 3, 2, 3},		/* L droite */
-	{2, 3, 2, 3},		/* Serpent romain */
-	{2, 3, 2, 3}		/* Serpent arabe */
+	{1, 4, 1, 4}, /* Barre */
+	{2, 2, 2, 2}, /* Boï¿½te */
+	{2, 3, 2, 3}, /* V */
+	{2, 3, 2, 3}, /* L gauche */
+	{2, 3, 2, 3}, /* L droite */
+	{2, 3, 2, 3}, /* Serpent romain */
+	{2, 3, 2, 3} /* Serpent arabe */
 };
 
 char BlkFormatX[7][4][4] = {
-	{{0, 0, 0, 0},		/* OOOO */
-	 {0, 1, 2, 3},
-	 {0, 0, 0, 0},
-	 {0, 1, 2, 3}},
-	{{0, 1, 0, 1},		/* OO */
-	 {0, 1, 0, 1},		/* OO */
-	 {0, 1, 0, 1},
-	 {0, 1, 0, 1}},
-	{{1, 0, 1, 1},		/* OOO */
-	 {1, 0, 1, 2},		/*  O */
-	 {0, 0, 1, 0},
-	 {0, 1, 2, 1}},
-	{{0, 0, 0, 1},
-	 {0, 1, 2, 2},		/* O */
-	 {0, 1, 1, 1},		/* O */
-	 {0, 1, 2, 0}},		/* OO */
-	{{1, 1, 1, 0},
-	 {0, 1, 2, 0},		/*  O */
-	 {1, 0, 0, 0},		/*  O */
-	 {0, 1, 2, 2}},		/* OO */
-	{{0, 0, 1, 1},
-	 {1, 2, 0, 1},
-	 {0, 0, 1, 1},
-	 {1, 2, 0, 1}},
-	{{1, 0, 1, 0},
-	 {0, 1, 1, 2},
-	 {1, 0, 1, 0},		/*OO */
-	 {0, 1, 1, 2}}		/* OO */
+	{
+		{0, 0, 0, 0}, /* OOOO */
+		{0, 1, 2, 3},
+		{0, 0, 0, 0},
+		{0, 1, 2, 3}
+	},
+	{
+		{0, 1, 0, 1}, /* OO */
+		{0, 1, 0, 1}, /* OO */
+		{0, 1, 0, 1},
+		{0, 1, 0, 1}
+	},
+	{
+		{1, 0, 1, 1}, /* OOO */
+		{1, 0, 1, 2}, /*  O */
+		{0, 0, 1, 0},
+		{0, 1, 2, 1}
+	},
+	{
+		{0, 0, 0, 1},
+		{0, 1, 2, 2}, /* O */
+		{0, 1, 1, 1}, /* O */
+		{0, 1, 2, 0} /* OO */
+	},
+	{
+		{1, 1, 1, 0},
+		{0, 1, 2, 0}, /*  O */
+		{1, 0, 0, 0}, /*  O */
+		{0, 1, 2, 2}  /* OO */
+	},
+	{
+		{0, 0, 1, 1},
+		{1, 2, 0, 1},
+		{0, 0, 1, 1},
+		{1, 2, 0, 1}
+	},
+	{
+		{1, 0, 1, 0},
+		{0, 1, 1, 2},
+		{1, 0, 1, 0}, /*OO */
+		{0, 1, 1, 2}  /* OO */
+	}
 };
 
 char BlkFormatY[7][4][4] = {
-	{{0, 1, 2, 3},		/* OOOO */
-	 {0, 0, 0, 0},
-	 {0, 1, 2, 3},
-	 {0, 0, 0, 0}},
-	{{0, 0, 1, 1},		/* OO */
-	 {0, 0, 1, 1},		/* OO */
-	 {0, 0, 1, 1},
-	 {0, 0, 1, 1}},
-	{{0, 1, 1, 2},		/* OOO */
-	 {0, 1, 1, 1},		/*  O */
-	 {0, 1, 1, 2},
-	 {0, 0, 0, 1}},
-	{{0, 1, 2, 2},
-	 {1, 1, 1, 0},		/* O */
-	 {0, 0, 1, 2},		/* O */
-	 {0, 0, 0, 1}},		/* OO */
-	{{0, 1, 2, 2},
-	 {1, 1, 1, 0},		/* O */
-	 {0, 0, 1, 2},		/* O */
-	 {0, 0, 0, 1}},		/*OO */
-	{{0, 1, 1, 2},
-	 {0, 0, 1, 1},
-	 {0, 1, 1, 2},
-	 {0, 0, 1, 1}},
-	{{0, 1, 1, 2},
-	 {0, 0, 1, 1},
-	 {0, 1, 1, 2}, /*OO*/ {0, 0, 1, 1}}	/* OO */
+	{
+		{0, 1, 2, 3}, /* OOOO */
+		{0, 0, 0, 0},
+		{0, 1, 2, 3},
+		{0, 0, 0, 0}
+	},
+	{
+		{0, 0, 1, 1}, /* OO */
+		{0, 0, 1, 1}, /* OO */
+		{0, 0, 1, 1},
+		{0, 0, 1, 1}
+	},
+	{
+		{0, 1, 1, 2}, /* OOO */
+		{0, 1, 1, 1}, /*  O */
+		{0, 1, 1, 2},
+		{0, 0, 0, 1}
+	},
+	{
+		{0, 1, 2, 2},
+		{1, 1, 1, 0}, /* O */
+		{0, 0, 1, 2}, /* O */
+		{0, 0, 0, 1} /* OO */
+	},
+	{
+		{0, 1, 2, 2},
+		{1, 1, 1, 0}, /* O */
+		{0, 0, 1, 2}, /* O */
+		{0, 0, 0, 1}  /*OO */
+	},
+	{
+		{0, 1, 1, 2},
+		{0, 0, 1, 1},
+		{0, 1, 1, 2},
+		{0, 0, 1, 1}
+	},
+	{
+		{0, 1, 1, 2},
+		{0, 0, 1, 1},
+		{0, 1, 1, 2},  /*OO*/
+		{0, 0, 1, 1} /* OO */
+	}
 };
 
 char TetrisInit(TetrisGame * Q);
 void TetrisStart(TetrisGame * Q);
-void TetrisRefresh(TetrisGame * Q);
+void TetrisRefresh(WINDOW *win, TetrisGame * Q);
 unsigned TetrisPlay(TetrisGame * Q);
 
 #define HomeX 15
@@ -124,7 +157,7 @@ unsigned TetrisPlay(TetrisGame * Q);
 
 void WaitRetrace()
 {
-	delay((int *)(1000 / 60));
+	usleep(10*1000);
 }
 
 #define Chr(X) (X & 0xFF)
@@ -138,7 +171,7 @@ void TextAttr(char Attr)
 void BarSpcHor(char X1, char Y, char X2)
 {
 	window(X1, Y, X2, Y);
-	clrscr();
+	clear();
 	window(1, 1, 40, 25);
 }
 
@@ -165,55 +198,55 @@ void TetrisStart(TetrisGame * Q)
 	(*Q).Mode = tmStart;
 }
 
-void TetrisRefresh(TetrisGame * Q)
+void TetrisRefresh(WINDOW *win, TetrisGame *Q)
 {
 	char I, J;
 	textbackground(1 + (*Q).Level);
-	clrscr();
-	gotoxy(3, 2);
+	clear();
+	move(3, 2);
 	printf("Niveau:");
-	gotoxy(4, 3);
+	move(4, 3);
 	printf("%i", (*Q).Level);
-	gotoxy(3, 5);
+	move(3, 5);
 	printf("Pointage:");
-	gotoxy(4, 6);
+	move(4, 6);
 	printf("0");
-	gotoxy(3, 8);
+	move(3, 8);
 	printf("Ligne:");
-	gotoxy(4, 9);
+	move(4, 9);
 	printf("%i", (*Q).Bar);
 	window(HomeX, HomeY, HomeX + 9, HomeY + 19);
-	textbackground(BLACK);
-	clrscr();
+	textbackground(COLOR_BLACK);
+	clear();
 	window(1, 1, 40, 25);
 	if ((*Q).Mode == tmPlay || (*Q).Mode == tmGameOver) {
 		for (J = 0; J <= 19; J++)
 			for (I = 0; I <= 9; I++)
 				if ((*Q).Tbl[J][I]) {
-					gotoxy(HomeX + I, HomeY + J);
-					printf("þ");
+					move(HomeX + I, HomeY + J);
+					printf("ï¿½");
 				}
 	}
 }
 
 void TetrisPutForm(TetrisGame * Q, char Clr)
 {
-	char Chr;
+	char chr;
 	char I, Attr, X, Y;
 	X = HomeX + (*Q).X;
 	Y = HomeY + (*Q).Y;
 	if (Clr) {
-		Chr = ' ';
+		chr = ' ';
 		Attr = 7;
 	} else {
-		Chr = 'þ';
+		chr = '*';
 		Attr = 0x71 + (*Q).Form;
 	}
 	for (I = 0; I <= 3; I++) {
-		gotoxy(X + BlkFormatX[(*Q).Form][(*Q).Move][I],
-		       Y + BlkFormatY[(*Q).Form][(*Q).Move][I]);
+		move(X + BlkFormatX[(*Q).Form][(*Q).Move][I],
+			Y + BlkFormatY[(*Q).Form][(*Q).Move][I]);
 		TextAttr(Attr);
-		putch(Chr);
+		putchar(chr);
 		TextAttr(7);
 	}
 }
@@ -245,9 +278,9 @@ char TetrisUpDateData(TetrisGame * Q)
 	(*Q).Y++;
 	for (I = 0; I <= 3; I++) {
 		(*Q).Touch = (*Q).Touch
-		    || (*Q).Tbl[(*Q).Y +
-				BlkFormatY[(*Q).Form][(*Q).Move][I]][(*Q).X +
-								     BlkFormatX[(*Q).Form][(*Q).Move][I]];
+			|| (*Q).Tbl[(*Q).Y +
+			BlkFormatY[(*Q).Form][(*Q).Move][I]][(*Q).X +
+			BlkFormatX[(*Q).Form][(*Q).Move][I]];
 	}
 	if ((*Q).Touch)
 		(*Q).Y--;
@@ -259,13 +292,13 @@ char TetrisUpDateData(TetrisGame * Q)
 		(*Q).Ok = TRUE;
 		for (I = 0; I <= 3; I++)
 			(*Q).Tbl[(*Q).Y +
-				 BlkFormatY[(*Q).Form][(*Q).Move][I]][(*Q).X +
-								      BlkFormatX
-								      [(*Q).
-								       Form][(*Q).Move][I]] = TRUE;
+			BlkFormatY[(*Q).Form][(*Q).Move][I]][(*Q).X +
+			BlkFormatX
+			[(*Q).
+			Form][(*Q).Move][I]] = TRUE;
 		if (Q->Level > 7) {
-			(*Q).Score += ((long)5) * (*Q).Level;
-			gotoxy(4, 6);
+			(*Q).Score += ((long) 5) * (*Q).Level;
+			move(4, 6);
 			printf("%l", (*Q).Score);
 		}
 		Bonus = 0;
@@ -304,23 +337,22 @@ char TetrisUpDateData(TetrisGame * Q)
 			for (I = 0; I <= 9; I++)
 				(*Q).Touch = (*Q).Touch && (*Q).Tbl[J][I];
 			if ((*Q).Touch) {
-				memcpy(&(*Q).Tbl[1][0], &(*Q).Tbl[0][0],
-				       10 * J);
+				memcpy(&(*Q).Tbl[1][0], &(*Q).Tbl[0][0], 10 * J);
 				memset(&(*Q).Tbl[0][0], FALSE, 10);
 				movetext(HomeX, HomeY, HomeX + 9, HomeY + J - 1,
-					 HomeX, HomeY + 1);
+					HomeX, HomeY + 1);
 				(*Q).Score +=
-				    ((long)5) + (Bonus * 4) * ((*Q).Level + 1) +
-				    10 * (*Q).Level;
+					((long) 5) + (Bonus * 4) * ((*Q).Level + 1) +
+					10 * (*Q).Level;
 				(*Q).Bar++;
-				gotoxy(4, 6);
+				move(4, 6);
 				printf("%i", (*Q).Score);
-				gotoxy(4, 9);
+				move(4, 9);
 				printf("%i", (*Q).Bar);
 				I = ((*Q).Bar + (*Q).FBar) >> 4;
 				if ((*Q).Level != I) {
 					(*Q).Level = I;
-					gotoxy(4, 3);
+					move(4, 3);
 					printf("%i", (*Q).Level + 1);
 					if ((*Q).SleepDelay > 6)
 						(*Q).SleepDelay -= 2;
@@ -336,7 +368,7 @@ char TetrisUpDateData(TetrisGame * Q)
 
 unsigned TetrisGameOver(TetrisGame * Q)
 {
-	gotoxy(10, 7);
+	move(10, 7);
 	printf("Partie Terminer");
 	if ((*Q).UpDate) {
 		(*Q).UpDate = 0;
@@ -344,11 +376,12 @@ unsigned TetrisGameOver(TetrisGame * Q)
 	return kbEsc;
 }
 
-void TetrisFirstTime(TetrisGame * Q)
+void TetrisFirstTime(WINDOW *win, TetrisGame * Q)
 {
 	TetrisStart(Q);
-	TetrisRefresh(Q);
+	TetrisRefresh(win, Q);
 	TetrisInitGame(Q);
+
 	(*Q).Mode = tmPlay;
 	(*Q).UpDate = TRUE;
 }
@@ -385,13 +418,13 @@ unsigned TetrisRun(TetrisGame * Q)
 				(*Q).Touch = FALSE;
 				for (I = 0; I <= 3; I++)
 					(*Q).Touch = (*Q).Touch
-					    || (*Q).Tbl[(*Q).Y +
-							BlkFormatY[(*Q).
-								   Form][(*Q).
-									 Move]
-							[I]][(*Q).X +
-							     BlkFormatX[(*Q).
-									Form][(*Q).Move][I] - 1];
+					|| (*Q).Tbl[(*Q).Y +
+					BlkFormatY[(*Q).
+					Form][(*Q).
+					Move]
+					[I]][(*Q).X +
+					BlkFormatX[(*Q).
+					Form][(*Q).Move][I] - 1];
 				if (!(*Q).Touch) {
 					TetrisPutForm(Q, TRUE);
 					(*Q).X--;
@@ -404,13 +437,13 @@ unsigned TetrisRun(TetrisGame * Q)
 				(*Q).Touch = FALSE;
 				for (I = 0; I <= 3; I++)
 					(*Q).Touch = (*Q).Touch
-					    || (*Q).Tbl[(*Q).Y +
-							BlkFormatY[(*Q).
-								   Form][(*Q).
-									 Move]
-							[I]][(*Q).X +
-							     BlkFormatX[(*Q).
-									Form][(*Q).Move][I] + 1];
+					|| (*Q).Tbl[(*Q).Y +
+					BlkFormatY[(*Q).
+					Form][(*Q).
+					Move]
+					[I]][(*Q).X +
+					BlkFormatX[(*Q).
+					Form][(*Q).Move][I] + 1];
 				if (!(*Q).Touch) {
 					TetrisPutForm(Q, TRUE);
 					(*Q).X++;
@@ -438,18 +471,18 @@ unsigned TetrisRun(TetrisGame * Q)
 				(*Q).Touch = FALSE;
 				for (I = 0; I <= 3; I++) {
 					XT = (*Q).X +
-					    BlkFormatX[(*Q).
-						       Form][((*Q).Move +
-							      1) & 3][I];
+						BlkFormatX[(*Q).
+						Form][((*Q).Move +
+						1) & 3][I];
 					(*Q).Touch = (*Q).Touch || (XT > 9);
 					(*Q).Touch = (*Q).Touch
-					    || (*Q).Tbl[(*Q).Y +
-							BlkFormatY[(*Q).
-								   Form][((*Q).
-									  Move +
-									  1) &
-									 3][I]]
-					    [XT];
+						|| (*Q).Tbl[(*Q).Y +
+						BlkFormatY[(*Q).
+						Form][((*Q).
+						Move +
+						1) &
+						3][I]]
+						[XT];
 				}
 				if (!(*Q).Touch) {
 					TetrisPutForm(Q, TRUE);
@@ -462,20 +495,20 @@ unsigned TetrisRun(TetrisGame * Q)
 						if (XT > 0)
 							XT--;
 						XT +=
-						    BlkFormatX[(*Q).
-							       Form][((*Q).
-								      Move +
-								      1) &
-								     3][I];
+							BlkFormatX[(*Q).
+							Form][((*Q).
+							Move +
+							1) &
+							3][I];
 						(*Q).Touch = (*Q).Touch
-						    || (XT > 9);
+							|| (XT > 9);
 						(*Q).Touch = (*Q).Touch
-						    || (*Q).Tbl[(*Q).Y +
-								BlkFormatY[(*Q).
-									   Form]
-								[((*Q).Move +
-								  1) &
-								 3][I]][XT];
+							|| (*Q).Tbl[(*Q).Y +
+							BlkFormatY[(*Q).
+							Form]
+							[((*Q).Move +
+							1) &
+							3][I]][XT];
 					}
 					if (!(*Q).Touch) {
 						TetrisPutForm(Q, TRUE);
@@ -495,17 +528,22 @@ unsigned TetrisRun(TetrisGame * Q)
 
 unsigned TetrisPlay(TetrisGame * Q)
 {
-	char I, J, H, XT;
-	unsigned XJ, YJ, K;
-	char NoAction;
+	WINDOW *win;
+	unsigned int K;
 
-	textmode(1);
-	TetrisRefresh(Q);
+	initscr(); /* Start curses mode */
+	if (has_colors() == FALSE) {
+		endwin();
+		exit(1);
+	}
+	start_color(); /* Start color	*/
+
+	TetrisRefresh(win, Q);
 	K = 0;
 	do {
 		switch ((*Q).Mode) {
 		case tmStart:
-			TetrisFirstTime(Q);
+			TetrisFirstTime(win, Q);
 			break;
 		case tmPlay:
 			K = TetrisRun(Q);
@@ -514,7 +552,8 @@ unsigned TetrisPlay(TetrisGame * Q)
 			K = TetrisGameOver(Q);
 			break;
 		}
- _Exit:	;
+_Exit:
+		;
 	} while (K == 0);
 	return K;
 }

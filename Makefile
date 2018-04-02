@@ -5,7 +5,7 @@ SRC = tetris.c
 all: tetris
 
 tetris: $(SRC)
-	gcc -o $@ $(SRC)
+	$(CC) -lcurses -o $@ $(SRC)
 clean:
 	$(RM) tetris
 
